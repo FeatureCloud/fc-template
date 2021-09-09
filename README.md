@@ -21,8 +21,8 @@ to know where is the flow currently and which state they desire to move in.
 ### Attributes
 We categorize attributes in the `AppLogic` class as follows:
 - Controlling the flow:
-  - `self.states`: Python dictionary that keeps names of states, as keys, and methods, as values.
-  - `self.current_state` Name of current state that should be changed to move to the next state.
+  - `states`: Python dictionary that keeps names of states, as keys, and methods, as values.
+  - `current_state` Name of current state that should be changed to move to the next state.
   - `status_available`: Boolean attribute to signal the availability of data to the FeatureCloud Controller to share it. 
   - `status_finished`: Boolean variable to signal the end of app's execution to the FeatureCloud Controller.
   - `thread`:

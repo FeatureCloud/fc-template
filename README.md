@@ -39,9 +39,9 @@ We categorize attributes in the `AppLogic` class as follows:
   - For I/O from the docker container:
     - `INPUT_DIR`: path to the directory inside the docker container for reading the input files.
     - `OUTPUT_DIR`: path to the directory inside the docker container for writing the results.
-    - `mode`: primarily used for indicating whether input files are stored in one folder or multiple folders.
-    - `dir`: the folder containing the input files. 
-    - `splits`: a set of possible splits(folder names, containing the input data, that are used for training) 
+    - `mode`: Primarily used for indicating whether input files are stored in one folder or multiple folders.
+    - `dir`: The folder containing the input files. 
+    - `splits`: A dictionary of possible splits(folder names, containing the input data, that are used for training) 
   
 ### Methods
 Developers can use to initialize some attributes in an arbitrary time. `app_flow` is the main method in `AppLogic` class that contains a state machine for the client and the coordinator. 

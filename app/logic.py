@@ -109,6 +109,10 @@ class AppLogic:
     def app_flow(self):
         # This method contains a state machine for the client and coordinator instance
 
+        print(f"{bcolors.STATE}States:{bcolors.ENDC}")
+        for i, state in enumerate(self.states):
+            print(f"{bcolors.STATE}{i}: {state}{bcolors.ENDC}")
+
         # Initial state
         self.progress = 'initializing...'
         previous_states = [self.current_state]

@@ -3,7 +3,8 @@
 
 FeatureCloud provide an advantageous platform which is accessible at [FeatureCloud.ai](https://featurecloud.ai/) 
 
-With FeatureCloud Template, you can implement your application in an OO fashion. This template consists of three main classes to interact with FC Controller and execute the app-level tasks. Generally, two types of clients are used in FeatureCloud Template:
+In an OO fashion, just by extending two classes, developers can use FeatureCloud Template for
+implementing one-shot or iterative applications. This template consists of three main classes to interact with FC Controller and execute the app-level tasks. Generally, two types of clients are used in FeatureCloud Template:
 
 - Client: Every participant in the FeatureCloud platform is considered a client who should perform local tasks and communicate some intermediary results with the coordinator. No raw data are supposed to be exchanged among clients and the coordinator.
 - Coordinator: One of the clients who can receive results of other clients, aggregate, and broadcast them.

@@ -50,7 +50,7 @@ class CustomLogic(AppLogic):
                        "Writing Results": None,
                        "Finishing": self.final_step
                        }
-        self.state = 'Initializing'
+        self.current_state = 'Initializing'
 
     def init_state(self):
         raise NotImplementedError
@@ -70,14 +70,14 @@ class CustomLogic(AppLogic):
     def write_results(self):
         if self.coordinator:
             self.data_incoming.append('DONE')
-            self.state = "Finishing"
+            self.current_state = "Finishing"
         else:
             self.data_outgoing = 'DONE'
             self.status_available = True
-            self.state = None
+            self.current_state = None
 
     def final_step(self):
         self.progress = 'finishing...'
         if len(self.data_incoming) == len(self.clients):
             self.status_finished = True
-            self.state = None
+            self.current_state = None

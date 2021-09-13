@@ -23,8 +23,6 @@ import os
 import shutil
 
 
-
-
 class CustomApp(CustomLogic):
     """
     Attributes
@@ -44,7 +42,6 @@ class CustomApp(CustomLogic):
         #   Configs
 
         #   Models & Parameters
-
 
         #  Update States Functionality
         self.states["Broadcasting Config file and data"] = self.broadcast_data
@@ -70,5 +67,6 @@ class CustomApp(CustomLogic):
         self.progress = "write results"
 
         super(CustomApp, self).write_results()
+
 
 logic = CustomApp()

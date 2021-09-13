@@ -51,7 +51,7 @@ It calls corresponding methods to each state. These are the four methods in `App
 
 ## CustomLogic
 `CustomLogic` is an extension class of `AppLogic`, which defines all the states, determines the first state, and, more importantly, 
-implements the flow between states. Besides controlling the flow, generally, we categorize states' tasks as
+implements the flow between states. Besides, controlling the flow, generally, we categorize states' tasks as
 operational and/or communicational. For communicational states responsible for sharing or receiving data,
 the method will be fully implemented and assigned to the state in `CustomLogic` class. For others, only the flow 
 related part will be implemented here, and the operation happens in `CustomApp` class. All the data-related

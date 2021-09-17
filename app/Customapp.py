@@ -44,8 +44,9 @@ class CustomApp(CustomLogic):
         #   Models & Parameters
 
         #  Update States Functionality
-        self.states["Broadcasting Config file and data"] = self.broadcast_data
-        self.states["Writing Results"] = self.write_results
+        smpc = self.make_smpc_setting(on=False)
+        status = self.make_status(available=True, message="Blah", progress=5, destination="some destination", smpc=smpc)
+        self.states["Writing Results"] = {"operation": self.write_results, "status": status}
 
     def read_config(self, config_file):
         """ Read Config file
@@ -65,6 +66,7 @@ class CustomApp(CustomLogic):
 
     def write_results(self):
         self.progress = "write results"
+        self.current_state
 
         super(CustomApp, self).write_results()
 

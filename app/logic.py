@@ -4,7 +4,7 @@
 """
 import threading
 import time
-
+from copy import deepcopy
 import jsonpickle
 import jsonpickle.ext.numpy as jsonpickle_numpy
 import jsonpickle.ext.pandas as jsonpickle_pd
@@ -52,6 +52,18 @@ class AppLogic:
     def __init__(self):
 
         # === Status of this app instance ===
+        self.default_status = {"available": False,
+                               "finished": False,
+                               "message": None,
+                               "progress": None,
+                               "state": "running",
+                               "destination": None,
+                               "smpc": {"operation": "add",
+                                        "serialization": "json",
+                                        "shards": 0,
+                                        "range": 0}}
+
+        self.status = deepcopy(self.default_status)
 
         # Indicates whether there is data to share, if True make sure self.data_out is available
         self.status_available = False
@@ -117,6 +129,8 @@ class AppLogic:
         self.progress = 'initializing...'
         previous_states = [self.current_state]
         while True:
+
+            # print the executed states
             if self.current_state != previous_states[-1]:
                 previous_states.append(self.current_state)
             msg = ""
@@ -129,9 +143,23 @@ class AppLogic:
                     msg += state + "$#@"
             print(f"{bcolors.STATE}{msg[:-3].strip().replace('$#@', ' ---> ')}{bcolors.ENDC}")
             print(f"{bcolors.STATE}Current State: {self.current_state}{bcolors.ENDC}")
-            self.states[self.current_state]()
-            if self.current_state is None:
+            # self.states[self.current_state]()
+
+            # execute the step
+            self.states[self.current_state]["operation"]()
+
+            # Set Status
+            for k, v in self.states[self.current_state]["status"]:
+                if k in self.status.keys():
+                    self.status[k] = v
+                else:
+                    print(f"{bcolors.WARNING}There is no {k} key in status!!!\n"
+                          f"status {k} will be ignored and the default value will be used{bcolors.ENDC}")
+
+            if self.status["finished"]:
                 break
+            # if self.current_state is None:
+            #     break
 
             time.sleep(1)
 
@@ -213,6 +241,48 @@ class AppLogic:
         """
         self.mode = mode
         self.dir = dir
+
+    def make_status(self, available=None, finished=False, message=None, progress=None, state=None, destination=None,
+                    smpc=None):
+        status = deepcopy(self.default_status)
+        if available is not None:
+            status["available"] = available
+        if finished is not None:
+            status["finished"] = finished
+        if message is not None:
+            status["message"] = message
+        if progress is not None:
+            status["progress"] = progress
+        if state is not None:
+            status["state"] = state
+        if destination is not None:
+            status["destination"] = destination
+        if smpc is not None:
+            status["SMPC"] = smpc
+        return status
+
+    def set_default_status(self, available=None, finished=False, message=None, progress=None, state=None,
+                           destination=None, smpc=None):
+        self.default_status = self.make_status(available, finished, message, progress, state, destination, smpc)
+
+    def change_current_status(self, available=None, finished=False, message=None, progress=None, state=None,
+                              destination=None, smpc=None):
+        self.states[self.current_state]["status"] =\
+            self.make_status(available, finished, message, progress, state, destination, smpc)
+
+    def make_smpc_setting(self, on, operation=None, serialization=None, shards=None, smpc_range=None):
+        smpc = self.default_status["SMPC"]
+        smpc["on"] = on
+        if on:
+            if operation is not None:
+                smpc["operation"] = operation
+            if serialization is not None:
+                smpc["serialization"] = serialization
+            if shards is not None:
+                smpc["shards"] = shards
+            if smpc_range is not None:
+                smpc["range"] = smpc_range
+        return smpc
 
 
 class TextColor:

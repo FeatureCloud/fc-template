@@ -46,10 +46,20 @@ class CustomLogic(AppLogic):
         self.workflows_states = {}
 
         # Define States
-        self.states = {"Initializing": self.init_state,
+        # self.states = {"Initializing": self.init_state,
+        #                "Writing Results": None,
+        #                "Finishing": self.final_step
+        #                }
+
+        self.states = {"Initializing": {"operation": self.init_state, "status": self.make_status()},
                        "Writing Results": None,
-                       "Finishing": self.final_step
+                       "Finishing": {"operation": self.final_step, "status": self.make_status()}
                        }
+        self.states = {}
+        status = self.make_status()
+        status["message"] = "something else"
+        self.states["Initializing"] = {"operation": self.init_state, "status": status}
+
         self.current_state = 'Initializing'
 
     def init_state(self):

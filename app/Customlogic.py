@@ -48,6 +48,7 @@ class CustomLogic(AppLogic):
         self.states = {"Initializing": self.init_state,
                        "Wait for Results": self.wait_for_data,
                        "Read Input": None,
+                       "Calculate Mean": None,
                        "Writing Results": None,
                        "Finishing": self.final_step
                        }
@@ -56,12 +57,7 @@ class CustomLogic(AppLogic):
 
     def init_state(self):
         if self.id is not None:  # Test if setup has happened already
-            if self.coordinator:
-                print("I am the Coordinator and have some process to do!")
-                self.current_state = "Read Input"
-            else:
-                print("I am a Client, and I just wait for the results from the coordinator")
-                self.current_state = "Wait for Results"
+            self.current_state = "Read Input"
 
     def wait_for_data(self):
         self.progress = 'wait for results from server'
@@ -72,6 +68,12 @@ class CustomLogic(AppLogic):
             self.current_state = "Writing Results"
 
     def read_input(self):
+        if self.coordinator:
+            self.current_state = "Calculate Mean"
+        else:
+            self.current_state = "Wait for Results"
+
+    def average(self):
         self.broadcast(self.results)
         self.current_state = "Writing Results"
 
@@ -81,8 +83,7 @@ class CustomLogic(AppLogic):
             self.current_state = "Finishing"
         else:
             self.data_outgoing = 'DONE'
-            self.modify_status(available=True)
-            self.modify_status(finished=True)
+            self.modify_status(available=True, finished=True)
 
     def final_step(self):
         self.progress = 'finishing...'

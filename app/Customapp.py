@@ -49,6 +49,7 @@ class CustomApp(CustomLogic):
         #  Update States Functionality
         self.states["Read Input"] = self.read_input
         self.states["Writing Results"] = self.write_results
+        self.states["Calculate Mean"] = self.average
 
     def read_config(self, config_file):
         """ Read Config file
@@ -64,13 +65,19 @@ class CustomApp(CustomLogic):
     def read_input(self):
         self.progress = "Read data"
         self.read_config(f"{self.INPUT_DIR}/config.yml")
-        self.df = pd.read_csv(self.config["local_dataset"]["data"])
-        self.results = self.df.mean()
+        if self.coordinator:
+            self.df = pd.read_csv(f"{self.INPUT_DIR}/{self.config['local_dataset']['data']}")
         super(CustomApp, self).read_input()
+
+    def average(self):
+        self.results = self.df.mean().tolist()
+        super(CustomApp, self).average()
 
     def write_results(self):
         self.progress = "write results"
-        self.results.to_csv(self.config["results"])
+        f = open(f"{self.OUTPUT_DIR}/{self.config['results']['mean']}", "w")
+        f.write(str(self.results))
+        f.close()
 
         super(CustomApp, self).write_results()
 

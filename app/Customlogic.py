@@ -42,40 +42,38 @@ class CustomLogic(AppLogic):
         super(CustomLogic, self).__init__()
 
         # Shared parameters and data
-        self.parameters = {}
-        self.workflows_states = {}
+        self.results = {}
 
         # Define States
-        # self.states = {"Initializing": self.init_state,
-        #                "Writing Results": None,
-        #                "Finishing": self.final_step
-        #                }
-
-        self.states = {"Initializing": {"operation": self.init_state, "status": self.make_status()},
+        self.states = {"Initializing": self.init_state,
+                       "Wait for Results": self.wait_for_data,
+                       "Read Input": None,
                        "Writing Results": None,
-                       "Finishing": {"operation": self.final_step, "status": self.make_status()}
+                       "Finishing": self.final_step
                        }
-        self.states = {}
-        status = self.make_status()
-        status["message"] = "something else"
-        self.states["Initializing"] = {"operation": self.init_state, "status": status}
 
         self.current_state = 'Initializing'
 
     def init_state(self):
-        raise NotImplementedError
         if self.id is not None:  # Test if setup has happened already
             if self.coordinator:
-                self.current_state = "Something"
+                print("I am the Coordinator and have some process to do!")
+                self.current_state = "Read Input"
             else:
-                self.current_state = "S.t. else"
+                print("I am a Client, and I just wait for the results from the coordinator")
+                self.current_state = "Wait for Results"
+
+    def wait_for_data(self):
+        self.progress = 'wait for results from server'
+        decoded_data = self.wait_for_server()
+        if decoded_data is not None:
+            print(f"{bcolors.SEND_RECEIVE} Received results from coordinator. {bcolors.ENDC}")
+            self.results = decoded_data[0]
+            self.current_state = "Writing Results"
 
     def read_input(self):
-        raise NotImplementedError
-        if self.coordinator:
-            self.current_state = "Something"
-        else:
-            self.current_state = "S.t. else"
+        self.broadcast(self.results)
+        self.current_state = "Writing Results"
 
     def write_results(self):
         if self.coordinator:
@@ -83,11 +81,10 @@ class CustomLogic(AppLogic):
             self.current_state = "Finishing"
         else:
             self.data_outgoing = 'DONE'
-            self.status_available = True
-            self.current_state = None
+            self.modify_status(available=True)
+            self.modify_status(finished=True)
 
     def final_step(self):
         self.progress = 'finishing...'
         if len(self.data_incoming) == len(self.clients):
-            self.status_finished = True
-            self.current_state = None
+            self.modify_status(finished=True)

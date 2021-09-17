@@ -21,6 +21,7 @@ from .Customlogic import CustomLogic
 import bios
 import os
 import shutil
+import pandas as pd
 
 
 class CustomApp(CustomLogic):
@@ -40,13 +41,14 @@ class CustomApp(CustomLogic):
         super(CustomApp, self).__init__()
 
         #   Configs
+        self.config = {}
 
         #   Models & Parameters
+        self.df = None
 
         #  Update States Functionality
-        smpc = self.make_smpc_setting(on=False)
-        status = self.make_status(available=True, message="Blah", progress=5, destination="some destination", smpc=smpc)
-        self.states["Writing Results"] = {"operation": self.write_results, "status": status}
+        self.states["Read Input"] = self.read_input
+        self.states["Writing Results"] = self.write_results
 
     def read_config(self, config_file):
         """ Read Config file
@@ -57,16 +59,18 @@ class CustomApp(CustomLogic):
             path to the config.yaml file!
 
         """
-        raise NotImplementedError
+        self.config = bios.read(config_file)["fc_template"]
 
     def read_input(self):
         self.progress = "Read data"
-
+        self.read_config(f"{self.INPUT_DIR}/config.yml")
+        self.df = pd.read_csv(self.config["local_dataset"]["data"])
+        self.results = self.df.mean()
         super(CustomApp, self).read_input()
 
     def write_results(self):
         self.progress = "write results"
-        self.current_state
+        self.results.to_csv(self.config["results"])
 
         super(CustomApp, self).write_results()
 

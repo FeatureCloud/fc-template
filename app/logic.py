@@ -52,24 +52,16 @@ class AppLogic:
     def __init__(self):
 
         # === Status of this app instance ===
-        self.default_status = {"available": False,
-                               "finished": False,
-                               "message": None,
-                               "progress": None,
-                               "state": "running",
-                               "destination": None,
-                               "smpc": {"operation": "add",
-                                        "serialization": "json",
-                                        "shards": 0,
-                                        "range": 0}}
-
-        self.status = deepcopy(self.default_status)
-
-        # Indicates whether there is data to share, if True make sure self.data_out is available
-        self.status_available = False
-
-        # Only relevant for coordinator, will stop execution when True
-        self.status_finished = False
+        self.status = {"available": False,
+                       "finished": False,
+                       "message": None,
+                       "progress": None,
+                       "state": "running",
+                       "destination": None,
+                       "smpc": {"operation": "add",
+                                "serialization": "json",
+                                "shards": 0,
+                                "range": 0}}
 
         # === Parameters set during setup ===
         self.id = None
@@ -115,7 +107,7 @@ class AppLogic:
     def handle_outgoing(self):
         print("Process outgoing data...")
         # This method is called when data is requested
-        self.status_available = False
+        self.modify_status(available=False)
         return self.data_outgoing
 
     def app_flow(self):
@@ -128,38 +120,29 @@ class AppLogic:
         # Initial state
         self.progress = 'initializing...'
         previous_states = [self.current_state]
+        last_iteration = self.iteration
         while True:
-
             # print the executed states
+            if last_iteration < self.iteration:
+                previous_states = [self.current_state]
             if self.current_state != previous_states[-1]:
                 previous_states.append(self.current_state)
-            msg = ""
-            if len(previous_states) < 5:
-                for state in previous_states:
-                    msg += state + "$#@"
-            else:
-                msg = "... "
-                for state in previous_states[-5:]:
-                    msg += state + "$#@"
-            print(f"{bcolors.STATE}{msg[:-3].strip().replace('$#@', ' ---> ')}{bcolors.ENDC}")
-            print(f"{bcolors.STATE}Current State: {self.current_state}{bcolors.ENDC}")
-            # self.states[self.current_state]()
+                msg = f"{self.iteration}'th Iteration:\n"
+                if len(previous_states) < 5:
+                    for state in previous_states:
+                        msg += state + "$#@"
+                else:
+                    msg = "... "
+                    for state in previous_states[-5:]:
+                        msg += state + "$#@"
+                print(f"{bcolors.STATE}{msg[:-3].strip().replace('$#@', ' ---> ')}{bcolors.ENDC}")
+                print(f"{bcolors.STATE}Current State: {self.current_state}{bcolors.ENDC}")
 
             # execute the step
-            self.states[self.current_state]["operation"]()
-
-            # Set Status
-            for k, v in self.states[self.current_state]["status"]:
-                if k in self.status.keys():
-                    self.status[k] = v
-                else:
-                    print(f"{bcolors.WARNING}There is no {k} key in status!!!\n"
-                          f"status {k} will be ignored and the default value will be used{bcolors.ENDC}")
+            self.states[self.current_state]()
 
             if self.status["finished"]:
                 break
-            # if self.current_state is None:
-            #     break
 
             time.sleep(1)
 
@@ -177,7 +160,7 @@ class AppLogic:
             self.data_incoming.append(data_to_send)
         else:
             self.data_outgoing = data_to_send
-            self.status_available = True
+            self.modify_status(available=True)
             print(f'{bcolors.SEND_RECEIVE} [CLIENT] Sending data to coordinator. {bcolors.ENDC}', flush=True)
 
     def get_clients_data(self):
@@ -228,7 +211,7 @@ class AppLogic:
         """
         data_to_broadcast = jsonpickle.encode(data)
         self.data_outgoing = data_to_broadcast
-        self.status_available = True
+        self.modify_status(available=True)
         print(f'{bcolors.SEND_RECEIVE} [COORDINATOR] Broadcasting data to clients. {bcolors.ENDC}', flush=True)
 
     def lazy_initialization(self, mode, dir):
@@ -242,36 +225,25 @@ class AppLogic:
         self.mode = mode
         self.dir = dir
 
-    def make_status(self, available=None, finished=False, message=None, progress=None, state=None, destination=None,
-                    smpc=None):
-        status = deepcopy(self.default_status)
+    def modify_status(self, available=None, finished=False, message=None, progress=None, state=None,
+                      destination=None, smpc=None):
         if available is not None:
-            status["available"] = available
+            self.status["available"] = available
         if finished is not None:
-            status["finished"] = finished
+            self.status["finished"] = finished
         if message is not None:
-            status["message"] = message
+            self.status["message"] = message
         if progress is not None:
-            status["progress"] = progress
+            self.status["progress"] = progress
         if state is not None:
-            status["state"] = state
+            self.status["state"] = state
         if destination is not None:
-            status["destination"] = destination
+            self.status["destination"] = destination
         if smpc is not None:
-            status["SMPC"] = smpc
-        return status
-
-    def set_default_status(self, available=None, finished=False, message=None, progress=None, state=None,
-                           destination=None, smpc=None):
-        self.default_status = self.make_status(available, finished, message, progress, state, destination, smpc)
-
-    def change_current_status(self, available=None, finished=False, message=None, progress=None, state=None,
-                              destination=None, smpc=None):
-        self.states[self.current_state]["status"] =\
-            self.make_status(available, finished, message, progress, state, destination, smpc)
+            self.status["SMPC"] = smpc
 
     def make_smpc_setting(self, on, operation=None, serialization=None, shards=None, smpc_range=None):
-        smpc = self.default_status["SMPC"]
+        smpc = self.status["SMPC"]
         smpc["on"] = on
         if on:
             if operation is not None:

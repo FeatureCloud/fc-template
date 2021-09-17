@@ -1,8 +1,6 @@
 fc_template:
   local_dataset:
-    train: "train.npy"
-    test: "test.npy"
-
+    data: "data.csv"
 
   logic:
     mode: "file"
@@ -10,5 +8,4 @@ fc_template:
 
 
   results:
-    pred: "y_pred.csv"
-    target: "y_test.csv"
+    mean: "mean.csv"

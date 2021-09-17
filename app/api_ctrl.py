@@ -25,10 +25,7 @@ def ctrl_setup():
 @api_server.get('/status')
 def ctrl_status():
     print(f'[CTRL] GET /status', flush=True)
-    return json.dumps({
-        'available': logic.status_available,
-        'finished': logic.status_finished,
-    })
+    return json.dumps(logic.status)
 
 
 @api_server.route('/data', method='GET')

@@ -39,12 +39,26 @@ We categorize attributes in the `AppLogic` class as follows:
     - `splits`: A dictionary of possible splits(folder names containing the input data that are used for training) 
   
 ### Methods
-Using `lazy_initializing`, Developers can initialize some attributes in an arbitrary time. `app_flow` is the method in `AppLogic` class that contains a state machine for the client and the coordinator. 
-It calls corresponding methods to each state. These are the four methods in `AppLogic` class that facilitate communicating data between coordinator and clients.
+`AppLogic` includes methods that we categorie them into two groups, one responsible for communicating data among
+FeatureCloud clients, another to configure the app. In later category we have followings:  
+- `lazy_initializing`: Developers can initialize some attributes in an arbitrary time. 
+Currently, there are two attributes that should be initialized using `lazy_initialzing` method becuase their value 
+should be read from the `config.yml` file:
+  - `mode`: Either `dierectory` or `file` to determine how data is stored in the container.
+  - `dir`:  The path to the directory containing input files.
+- `finalize_config`: Regarding `mode` of input files, there will be some split keys to keep track of input data splits,
+and also corresponding intermediary or final results, in different states of the app. Accordingly, `finalize_config`
+configures split keys and creates output directory in the container. It is recommended to be called right after
+`lazy_initializing`.  
+- `app_flow`: is responsible to run the developed state machine for clients and the coordinator, report states list,
+and controlling the flow. 
+
+
+These are the four methods in `AppLogic` class that facilitate communicating data between coordinator and clients.
 
 - `send_to_server`: should be called only for clients to send their data to the coordinator.
 - `get_clients_data`: Should be called only for the coordinator to wait for the clients until receiving their data.
-  For each split, corresponding clients' data will be yield back.
+  For each split, corresponding clients' data will be yield back alongside splits name. 
 - `wait_for_server`: Should be called only for clients to wait for coordinator until receiving broadcasted data.
 - `broadcast`: should be called only for the coordinator to broadcast the same date to all clients.
 

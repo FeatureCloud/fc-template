@@ -4,7 +4,9 @@
 """
 import threading
 import time
-from copy import deepcopy
+import os
+import shutil
+
 import jsonpickle
 import jsonpickle.ext.numpy as jsonpickle_numpy
 import jsonpickle.ext.pandas as jsonpickle_pd
@@ -224,6 +226,30 @@ class AppLogic:
         """
         self.mode = mode
         self.dir = dir
+        self.finalize_config()
+
+    def finalize_config(self):
+        """
+
+        Returns
+        -------
+
+        """
+        if self.mode == "directory":
+            self.splits = dict.fromkeys([f.path for f in os.scandir(f'{self.INPUT_DIR}/{self.dir}') if f.is_dir()])
+            self.state_dict = dict.fromkeys(self.splits.keys())
+            self.parameters = dict.fromkeys(self.splits.keys())
+            self.workflows_states = dict.fromkeys(self.splits.keys())
+        else:
+            self.splits[self.INPUT_DIR] = None
+            self.state_dict[self.INPUT_DIR] = None
+            self.parameters[self.INPUT_DIR] = None
+            self.workflows_states[self.INPUT_DIR] = None
+
+        for split in self.splits.keys():
+            os.makedirs(split.replace("/input", "/output"), exist_ok=True)
+        shutil.copyfile(self.INPUT_DIR + '/config.yml', self.OUTPUT_DIR + '/config.yml')
+
 
     def modify_status(self, available=None, finished=False, message=None, progress=None, state=None,
                       destination=None, smpc=None):

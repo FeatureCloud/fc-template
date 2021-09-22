@@ -131,11 +131,11 @@ class AppLogic:
         return self.data_outgoing
 
     def app_flow(self):
-        """
+        """ Runs the state machine for FeatureCloud clients
+            Reports Current states and transition between them
+            And executes state functions
 
         """
-        # This method contains a state machine for the client and coordinator instance
-
         print(f"{bcolors.STATE}States:{bcolors.ENDC}")
         for i, state in enumerate(self.states):
             print(f"{bcolors.STATE}{i}: {state}{bcolors.ENDC}")

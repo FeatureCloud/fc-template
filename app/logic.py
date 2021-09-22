@@ -2,6 +2,7 @@
     FeatureCloud Template
     mohammad.bakhtiari@uni-hamburg.de
 """
+import copy
 import threading
 import time
 import os
@@ -20,11 +21,11 @@ class AppLogic:
 
     Attributes
     ----------
-    status_available: bool
-    status_finished: bool
-    id:
+    default_status: dict
+    status: dict
+    id: int
     coordinator: bool
-    clients:
+    clients: list
     data_incoming: list
     data_outgoing: list
     thread:
@@ -54,16 +55,21 @@ class AppLogic:
     def __init__(self):
 
         # === Status of this app instance ===
-        self.status = {"available": False,
-                       "finished": False,
-                       "message": None,
-                       "progress": None,
-                       "state": "running",
-                       "destination": None,
-                       "smpc": {"operation": "add",
-                                "serialization": "json",
-                                "shards": 0,
-                                "range": 0}}
+        self.default_status = {"available": False,
+                               "finished": False,
+                               "message": None,
+                               "progress": None,
+                               "state": "running",
+                               "destination": None,
+                               "smpc": {"operation": "add",
+                                        "serialization": "json",
+                                        "shards": 0,
+                                        "range": 0}}
+        self.status = copy.deepcopy()
+
+        # By default SMPC will not be used for communications unless been ask for.
+        self.status['smpc'] = None
+
 
         # === Parameters set during setup ===
         self.id = None
@@ -92,7 +98,15 @@ class AppLogic:
         self.current_state = None
 
     def handle_setup(self, client_id, coordinator, clients):
-        # This method is called once upon startup and contains information about the execution context of this instance
+        """ Is called once upon startup and contains information about the execution context of this instance
+
+        Parameters
+        ----------
+        client_id: int
+        coordinator: bool
+        clients: list
+
+        """
         self.id = client_id
         self.coordinator = coordinator
         self.clients = clients
@@ -102,17 +116,24 @@ class AppLogic:
         self.thread.start()
 
     def handle_incoming(self, data):
-        # This method is called when new data arrives
+        """ Is called when new data arrives
+
+        """
         print("Process incoming data....")
         self.data_incoming.append(data.read())
 
     def handle_outgoing(self):
+        """ Is called when data is requested
+
+        """
         print("Process outgoing data...")
-        # This method is called when data is requested
         self.modify_status(available=False)
         return self.data_outgoing
 
     def app_flow(self):
+        """
+
+        """
         # This method contains a state machine for the client and coordinator instance
 
         print(f"{bcolors.STATE}States:{bcolors.ENDC}")
@@ -149,7 +170,7 @@ class AppLogic:
             time.sleep(1)
 
     def send_to_server(self, data_to_send):
-        """  Will be called only for clients
+        """  Is called only for clients
             to send their parameters or local statistics for the coordinator
 
         Parameters
@@ -237,19 +258,15 @@ class AppLogic:
         """
         if self.mode == "directory":
             self.splits = dict.fromkeys([f.path for f in os.scandir(f'{self.INPUT_DIR}/{self.dir}') if f.is_dir()])
-            self.state_dict = dict.fromkeys(self.splits.keys())
-            self.parameters = dict.fromkeys(self.splits.keys())
-            self.workflows_states = dict.fromkeys(self.splits.keys())
         else:
             self.splits[self.INPUT_DIR] = None
-            self.state_dict[self.INPUT_DIR] = None
-            self.parameters[self.INPUT_DIR] = None
-            self.workflows_states[self.INPUT_DIR] = None
 
         for split in self.splits.keys():
             os.makedirs(split.replace("/input", "/output"), exist_ok=True)
         shutil.copyfile(self.INPUT_DIR + '/config.yml', self.OUTPUT_DIR + '/config.yml')
 
+    def apply_smpc(self):
+        self.status['smpc'] = copy.deepcopy(self.default_status['smpc'])
 
     def modify_status(self, available=None, finished=False, message=None, progress=None, state=None,
                       destination=None, smpc=None):
@@ -269,7 +286,7 @@ class AppLogic:
             self.status["SMPC"] = smpc
 
     def make_smpc_setting(self, on, operation=None, serialization=None, shards=None, smpc_range=None):
-        smpc = self.status["SMPC"]
+        smpc = self.default_status["SMPC"]
         smpc["on"] = on
         if on:
             if operation is not None:

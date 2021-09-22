@@ -4,14 +4,19 @@
 FeatureCloud provide an advantageous platform which is accessible at [FeatureCloud.ai](https://featurecloud.ai/) 
 
 In an OO fashion, just by extending two classes, developers can use FeatureCloud Template for
-implementing one-shot or iterative applications. This template consists of three main classes to interact with FC Controller and execute the app-level tasks. Generally, two types of clients are used in FeatureCloud Template:
+implementing one-shot or iterative applications. This template consists of three main classes to interact
+with FC Controller and execute the app-level tasks. Generally, two types of clients are used in FeatureCloud Template:
 
-- Client: Every participant in the FeatureCloud platform is considered a client who should perform local tasks and communicate some intermediary results with the coordinator. No raw data are supposed to be exchanged among clients and the coordinator.
+- Client: Every participant in the FeatureCloud platform is considered a client who should perform local tasks and 
+communicate some intermediary results with the coordinator. No raw data are supposed to be exchanged among clients and the coordinator.
 - Coordinator: One of the clients who can receive results of other clients, aggregate, and broadcast them.
 
 
 ## AppLogic
-Using the `AppLogic` class, users can define different states and make a flow to move from one to another. Each state should be added to the `states` attributes, while there is no predefined order for executing states, the flow direction will be handled using `CustomLogic` class. With `current_state`, developers know the flow and determine which state they desire to move in.
+Using the `AppLogic` class, users can define different states and make a flow to move from one to another.
+Each state should be added to the `states` attributes, while there is no predefined order for executing states, 
+the flow direction will be handled using `CustomLogic` class. With `current_state`, developers know the flow and
+determine which state they desire to move in.
 
 ### Attributes
 We categorize attributes in the `AppLogic` class as follows:
@@ -58,29 +63,36 @@ These are the four methods in `AppLogic` class that facilitate communicating dat
 
 - `send_to_server`: should be called only for clients to send their data to the coordinator.
 - `get_clients_data`: Should be called only for the coordinator to wait for the clients until receiving their data.
-  For each split, corresponding clients' data will be yield back alongside splits name. 
+  For each split, corresponding clients' data will be yield back alongside splits name. Developers can treat the output
+ as a generator, which gets the next splits data on demand.
 - `wait_for_server`: Should be called only for clients to wait for coordinator until receiving broadcasted data.
 - `broadcast`: should be called only for the coordinator to broadcast the same date to all clients.
 
+## Developing FeatureCloud Applications
+There are two recommended way to implement apps using this template. One is extending AppLogic to define states,
+transition between them, communicate results to other clients, and app computations. And separating app flow and data
+communication from computations, which will be elaborated next in terms of defining CustomLogic and CustomApp.   
 
-## CustomLogic
-`CustomLogic` is an extension class of `AppLogic`, which defines all the states, determines the first state, and, more importantly, 
+### CustomLogic
+`CustomLogic` is an extension of `AppLogic`, which defines all the states, determines the first state, and, more importantly, 
 implements the flow between states. Besides, controlling the flow, generally, we categorize states' tasks as
 operational and/or communicational. For communicational states responsible for sharing or receiving data,
 the method will be fully implemented and assigned to the state in `CustomLogic` class. For others, only the flow 
 related part will be implemented here, and the operation happens in `CustomApp` class. All the data-related
 attributes, shared among clients, should be introduced in `CustomLogic`.  
 
-### Attributes
+#### Attributes
 - `parameters`: A dictionary that can contain any data that should be shared.
 - `workflows_states`: A dictionary that can signal any messages to the coordinator or vice versa.
 
-### Methods
+#### Methods
 Methods are highly diverse regarding the target application; however, almost every application
 should include initializing and finalizing state and method. 
 - `init_state`
 - `read_input`
 - `final_step`
 
-## CustomApp
-`CustomApp` is an extension of `CustomLogic` that introduces all the required attributes and methods to execute the app's task. Each state's method call its corresponding superclass method in `CustomLogic` to change the flow to the next state, which was previously implemented.
+### CustomApp
+`CustomApp` is an extension of `CustomLogic` that introduces all the required attributes and methods to execute the 
+app's task. Each state's method call its corresponding superclass method in `CustomLogic` to change the flow to 
+the next state, which was previously implemented.

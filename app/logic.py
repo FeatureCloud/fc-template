@@ -7,10 +7,12 @@ import threading
 import time
 import os
 import shutil
+import bios
 
 import jsonpickle
 import jsonpickle.ext.numpy as jsonpickle_numpy
 import jsonpickle.ext.pandas as jsonpickle_pd
+import json
 
 jsonpickle_numpy.register_handlers()
 jsonpickle_pd.register_handlers()
@@ -35,7 +37,7 @@ class AppLogic:
     OUTPUT_DIR: str
     mode: str
     dir: str
-    splits: dict
+    splits: set
     test_splits: dict
     states: dict
     current_state: str
@@ -65,11 +67,12 @@ class AppLogic:
                                         "serialization": "json",
                                         "shards": 0,
                                         "range": 0}}
-        self.status = copy.deepcopy()
+        self.status = copy.deepcopy(self.default_status)
 
         # By default SMPC will not be used for communications unless been ask for.
-        self.status['smpc'] = None
-
+        self.disable_smpc()
+        self.smpc_used = False
+        self.smpc_required = False
 
         # === Parameters set during setup ===
         self.id = None
@@ -85,15 +88,18 @@ class AppLogic:
         self.iteration = 0
         self.progress = 'not started yet'
 
-        # === Custom ===
+        # === App config Attributes ===
         self.INPUT_DIR = "/mnt/input"
         self.OUTPUT_DIR = "/mnt/output"
 
+        self.config_file = {}
         self.mode = None
         self.dir = None
-        self.splits = {}
-        # self.test_splits = {}
+        self.splits = set()
+        self.input_files = {}
+        self.output_files = {}
 
+        # === App States ===
         self.states = {}
         self.current_state = None
 
@@ -128,6 +134,8 @@ class AppLogic:
         """
         print("Process outgoing data...")
         self.modify_status(available=False)
+        if not self.coordinator:
+            self.disable_smpc()
         return self.data_outgoing
 
     def app_flow(self):
@@ -169,7 +177,7 @@ class AppLogic:
 
             time.sleep(1)
 
-    def send_to_server(self, data_to_send):
+    def send_to_coordinator(self, data_to_send):
         """  Is called only for clients
             to send their parameters or local statistics for the coordinator
 
@@ -178,8 +186,9 @@ class AppLogic:
         data_to_send: list
 
         """
-        data_to_send = jsonpickle.encode(data_to_send)
-        if self.coordinator:
+
+        data_to_send = json.dumps(data_to_send) if self.smpc_used else jsonpickle.encode(data_to_send)
+        if not self.smpc_used and self.coordinator:
             self.data_incoming.append(data_to_send)
         else:
             self.data_outgoing = data_to_send
@@ -197,16 +206,24 @@ class AppLogic:
         split: str
         """
         print(f"{bcolors.SEND_RECEIVE} Received data of all clients. {bcolors.ENDC}")
-        data = [jsonpickle.decode(client_data) for client_data in self.data_incoming]
-        self.data_incoming = []
-        for split in self.splits.keys():
-            print(f'{bcolors.SPLIT} Get {split} {bcolors.ENDC}')
-            clients_data = []
-            for client in data:
-                clients_data.append(client[split])
-            yield clients_data, split
+        if self.is_received_data_aggregated():
+            data = jsonpickle.decode(self.data_incoming[0])
+            self.data_incoming = []
+            for i, split in enumerate(self.splits):
+                print(f'{bcolors.SPLIT} Get {split} {bcolors.ENDC}')
+                yield data[i], split
+            self.disable_smpc()
+        else:
+            data = [jsonpickle.decode(client_data) for client_data in self.data_incoming]
+            self.data_incoming = []
+            for i, split in enumerate(self.splits):
+                print(f'{bcolors.SPLIT} Get {split} {bcolors.ENDC}')
+                clients_data = []
+                for client in data:
+                    clients_data.append(client[i])
+                yield clients_data, split
 
-    def wait_for_server(self):
+    def wait_for_coordinator(self):
         """ Will be called only for clients
             to wait for server to get
             some globally shared data.
@@ -218,7 +235,10 @@ class AppLogic:
             to signal the state!
         """
         if len(self.data_incoming) > 0:
-            data_decoded = jsonpickle.decode(self.data_incoming[0])
+            if len(self.data_incoming) == 1:
+                data_decoded = jsonpickle.decode(self.data_incoming[0])
+            else:
+                data_decoded = jsonpickle.decode(self.data_incoming)
             self.data_incoming = []
             return data_decoded
         return None
@@ -237,18 +257,6 @@ class AppLogic:
         self.modify_status(available=True)
         print(f'{bcolors.SEND_RECEIVE} [COORDINATOR] Broadcasting data to clients. {bcolors.ENDC}', flush=True)
 
-    def lazy_initialization(self, mode, dir):
-        """
-
-        Parameters
-        ----------
-        mode: str
-        dir: str
-        """
-        self.mode = mode
-        self.dir = dir
-        self.finalize_config()
-
     def finalize_config(self):
         """
 
@@ -257,16 +265,64 @@ class AppLogic:
 
         """
         if self.mode == "directory":
-            self.splits = dict.fromkeys([f.path for f in os.scandir(f'{self.INPUT_DIR}/{self.dir}') if f.is_dir()])
+            splits = [f.path for f in os.scandir(f'{self.INPUT_DIR}/{self.dir}') if f.is_dir()]
         else:
-            self.splits[self.INPUT_DIR] = None
+            splits = [self.INPUT_DIR, ]
+        self.splits = set(sorted(splits))
+        print(f"{bcolors.SPLIT} Splits order:")
+        for i, split in enumerate(self.splits):
+            print(f"Split {i}: {split}")
+        self.input_files = {k: set([f"{split}/{v}" for split in self.splits])
+                            for k, v in self.config_file['local_datasets'].items()}
+        self.output_files = {k: set([f"{split.replace('/input', '/output')}/{v}" for split in self.splits])
+                             for k, v in self.config_file['results'].items()}
 
-        for split in self.splits.keys():
+        for split in self.splits:
             os.makedirs(split.replace("/input", "/output"), exist_ok=True)
         shutil.copyfile(self.INPUT_DIR + '/config.yml', self.OUTPUT_DIR + '/config.yml')
 
-    def apply_smpc(self):
+    def read_config(self, app_name):
+        """ Read Config file
+
+        Parameters
+        ----------
+        app_name: string
+            path to the config.yaml file!
+
+        """
+        self.config_file = bios.read(f"{self.INPUT_DIR}/config.yml")[app_name]
+        if 'logic' in self.config_file:
+            self.mode = self.config_file['logic']['mode']
+            self.dir = self.config_file['logic']['dir']
+        else:
+            print(f"{bcolors.WARNING}There are no 'logic' options in 'config.yml' file!\n"
+                  f"default values will be used:\n"
+                  f"mod: 'file'\n"
+                  f"dir: '.'{bcolors.ENDC}")
+            self.mode = 'file'
+            self.dir = '.'
+        if 'smpc_required' in self.config_file:
+            self.smpc_required = self.config_file['smpc_required']
+        else:
+            print(f"{bcolors.WARNING}There is no 'smpc_required' option in 'config.yml' file!\n"
+                  f"By default SMPC will not be used{bcolors.ENDC}")
+        self.finalize_config()
+
+    def is_clients_data_arrived(self):
+        if self.smpc_used:
+            if len(self.splits) == 1:
+                return len(self.data_incoming) > 0
+            return len(self.data_incoming) == len(self.splits)
+        else:
+            return len(self.data_incoming) == len(self.clients)
+
+    def enable_smpc(self):
         self.status['smpc'] = copy.deepcopy(self.default_status['smpc'])
+        self.smpc_used = True
+
+    def disable_smpc(self):
+        self.status['smpc'] = None
+        self.smpc_used = False
 
     def modify_status(self, available=None, finished=False, message=None, progress=None, state=None,
                       destination=None, smpc=None):
@@ -283,21 +339,22 @@ class AppLogic:
         if destination is not None:
             self.status["destination"] = destination
         if smpc is not None:
-            self.status["SMPC"] = smpc
+            self.status["smpc"] = smpc
 
-    def make_smpc_setting(self, on, operation=None, serialization=None, shards=None, smpc_range=None):
-        smpc = self.default_status["SMPC"]
-        smpc["on"] = on
-        if on:
-            if operation is not None:
-                smpc["operation"] = operation
-            if serialization is not None:
-                smpc["serialization"] = serialization
-            if shards is not None:
-                smpc["shards"] = shards
-            if smpc_range is not None:
-                smpc["range"] = smpc_range
+    def make_smpc_setting(self, operation=None, serialization=None, shards=None, smpc_range=None):
+        smpc = self.default_status["smpc"]
+        if operation is not None:
+            smpc["operation"] = operation
+        if serialization is not None:
+            smpc["serialization"] = serialization
+        if shards is not None:
+            smpc["shards"] = shards
+        if smpc_range is not None:
+            smpc["range"] = smpc_range
         return smpc
+
+    def is_received_data_aggregated(self):
+        return self.smpc_used
 
 
 class TextColor:

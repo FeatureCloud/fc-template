@@ -6,6 +6,7 @@ fc_template:
     mode: "file"
     dir: "."
 
+  smpc_required: True
 
   results:
     mean: "mean.csv"

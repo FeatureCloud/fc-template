@@ -61,7 +61,7 @@ class CustomLogic(AppLogic):
 
     def wait_for_data(self):
         self.progress = 'wait for results from server'
-        decoded_data = self.wait_for_server()
+        decoded_data = self.wait_for_coordinator()
         if decoded_data is not None:
             print(f"{bcolors.SEND_RECEIVE} Received results from coordinator. {bcolors.ENDC}")
             self.results = decoded_data[0]
